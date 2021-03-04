@@ -180,9 +180,30 @@ uint8_t rgb_matrix_map_row_column_to_led(uint8_t row, uint8_t column, uint8_t *l
 
 void rgb_matrix_update_pwm_buffers(void) { rgb_matrix_driver.flush(); }
 
-void rgb_matrix_set_color(int index, uint8_t red, uint8_t green, uint8_t blue) { rgb_matrix_driver.set_color(index, red, green, blue); }
+// Using 1 byte color encoding to save memory
+uint8_t rgb_override[DRIVER_LED_TOTAL] = {0};
+#define THREE_BIT_COLOR_TO_UINT 36
+#define TWO_BIT_COLOR_TO_UINT 85
 
-void rgb_matrix_set_color_all(uint8_t red, uint8_t green, uint8_t blue) { rgb_matrix_driver.set_color_all(red, green, blue); }
+void rgb_matrix_set_color_override(int index, uint8_t packed_color) {
+    rgb_override[index] = packed_color;
+}
+
+void rgb_matrix_set_color(int index, uint8_t red, uint8_t green, uint8_t blue) {
+    uint8_t color = rgb_override[index];
+    if(color == 0) {
+        rgb_matrix_driver.set_color(index, red, green, blue);
+    } else {
+        uint8_t r = ((unsigned)color >> 5u) & 7u;
+        uint8_t g = ((unsigned)color >> 2u) & 7u;
+        uint8_t b = color & 3u;
+        rgb_matrix_driver.set_color(index, r * THREE_BIT_COLOR_TO_UINT, g * THREE_BIT_COLOR_TO_UINT, b * TWO_BIT_COLOR_TO_UINT);
+    }
+}
+
+void rgb_matrix_set_color_all(uint8_t red, uint8_t green, uint8_t blue) {
+    rgb_matrix_driver.set_color_all(red, green, blue);
+}
 
 bool process_rgb_matrix(uint16_t keycode, keyrecord_t *record) {
 #if RGB_DISABLE_TIMEOUT > 0
