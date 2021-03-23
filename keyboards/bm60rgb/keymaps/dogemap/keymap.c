@@ -45,6 +45,29 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
                 rgb_matrix_set_color_override(i, 0);
             }
         }
+        break;
+        case 3: {
+            // Override animation
+            // Override index
+            uint8_t override = data[1];
+            // Animation type
+            uint8_t animation = data[2];
+            switch (animation) {
+                // Override disabled
+                case 0:
+                    rgb_matrix_set_animation_override_disabled(override);
+                    break;
+                // Blinking animation
+                case 1:
+                    rgb_matrix_set_animation_override_blink(override, data[3], data[4], data[5], data[6], data[7]);
+                    break;
+                // Hue cycle animation
+                case 2:
+                    rgb_matrix_set_animation_override_hue(override, data[3], data[4], data[5]);
+                    break;
+            }
+        }
+        break;
     }
 }
 #endif

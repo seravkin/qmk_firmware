@@ -96,6 +96,11 @@ uint8_t rgb_matrix_map_row_column_to_led_kb(uint8_t row, uint8_t column, uint8_t
 uint8_t rgb_matrix_map_row_column_to_led(uint8_t row, uint8_t column, uint8_t *led_i);
 
 void rgb_matrix_set_color_override(int index, uint8_t packed_color);
+
+void rgb_matrix_set_animation_override_blink(uint8_t override_index, uint8_t key_index, uint8_t r, uint8_t g, uint8_t b, uint8_t period);
+void rgb_matrix_set_animation_override_hue(uint8_t override_index, uint8_t key_index, uint8_t period, uint8_t brightness_period);
+void rgb_matrix_set_animation_override_disabled(uint8_t override_index);
+
 void rgb_matrix_set_color(int index, uint8_t red, uint8_t green, uint8_t blue);
 void rgb_matrix_set_color_all(uint8_t red, uint8_t green, uint8_t blue);
 

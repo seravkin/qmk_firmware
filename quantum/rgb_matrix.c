@@ -201,6 +201,20 @@ void rgb_matrix_set_color(int index, uint8_t red, uint8_t green, uint8_t blue) {
     }
 }
 
+#define MAX_ANIMATION_OVERRIDE 9
+
+typedef enum anim_override_states { DISABLED, BLINK, HUE } anim_override_states;
+
+typedef struct PACKED {
+    anim_override_states state;
+    uint8_t key_index;
+    uint8_t period;
+    uint8_t brightness_period;
+    union { RGB color; HSV hsv_color; };
+} animation_override_t;
+
+animation_override_t animation_override[MAX_ANIMATION_OVERRIDE] = {0};
+
 void rgb_matrix_set_color_all(uint8_t red, uint8_t green, uint8_t blue) {
     rgb_matrix_driver.set_color_all(red, green, blue);
 }
@@ -333,6 +347,54 @@ static void rgb_task_start(void) {
     rgb_task_state = RENDERING;
 }
 
+void rgb_matrix_set_animation_override_disabled(uint8_t override_index) {
+    if(override_index < MAX_ANIMATION_OVERRIDE) {
+        animation_override_t override = {
+            DISABLED ,0, 0, 0, {{0,0,0}}
+        };
+        animation_override[override_index] = override;
+    }
+}
+
+void rgb_matrix_set_animation_override_blink(uint8_t override_index, uint8_t key_index, uint8_t r, uint8_t g, uint8_t b, uint8_t period) {
+    if(override_index < MAX_ANIMATION_OVERRIDE && key_index < DRIVER_LED_TOTAL) {
+        animation_override_t override = {
+            BLINK, key_index , period, 0, {{.r = r, .g = g, .b = b}}
+        };
+        animation_override[override_index] = override;
+    }
+}
+
+void rgb_matrix_set_animation_override_hue(uint8_t override_index, uint8_t key_index, uint8_t period, uint8_t brightness_period) {
+    if(override_index < MAX_ANIMATION_OVERRIDE) {
+        HSV hsv = rgb_matrix_get_hsv();
+        animation_override_t override = {
+            HUE, key_index, period, brightness_period, {.hsv_color = hsv}
+        };
+        animation_override[override_index] = override;
+    }
+}
+
+void animation_override_blink(const animation_override_t* override) {
+    uint8_t period = override->period;
+    uint8_t quarter_seconds = g_rgb_timer / 256;
+    if(quarter_seconds % period < (period / 2)) {
+        rgb_matrix_set_color(override->key_index, override->color.r, override->color.g, override->color.b);
+    } else {
+        rgb_matrix_set_color(override->key_index, 0,0,0);
+    }
+}
+
+void animation_override_hue(animation_override_t* override) {
+    uint8_t quarter_of_second = g_rgb_timer % 256;
+    if(quarter_of_second == 0) {
+        override->hsv_color.h += override->period;
+        override->hsv_color.v += override->brightness_period;
+        RGB rgb = rgb_matrix_hsv_to_rgb(override->hsv_color);
+        rgb_matrix_set_color(override -> key_index, rgb.r, rgb.g, rgb.b);
+    }
+}
+
 static void rgb_task_render(uint8_t effect) {
     bool rendering         = false;
     rgb_effect_params.init = (effect != rgb_last_effect) || (rgb_matrix_config.enable != rgb_last_enable);
@@ -378,6 +440,26 @@ static void rgb_task_render(uint8_t effect) {
     }
 
     rgb_effect_params.iter++;
+
+    // apply overridden animations
+    if (rendering) {
+        for(uint8_t i = 0; i < MAX_ANIMATION_OVERRIDE; i++) {
+            const animation_override_t * override = &animation_override[i];
+            if(override->state == DISABLED) {
+                continue;
+            }
+
+            switch (override->state) {
+                case DISABLED:
+                    break;
+                case BLINK:
+                    animation_override_blink(override);
+                    break;
+                case HUE:
+                    break;
+            }
+        }
+    }
 
     // next task
     if (!rendering) {
